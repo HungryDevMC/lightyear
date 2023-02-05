@@ -1,0 +1,113 @@
+version: '3'
+networks:
+  lightyear_network:
+    driver: bridge
+services:
+  kafka_registry:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: "512M"
+    container_name: kafka_registry
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - 32181:2181
+    networks:
+      - lightyear_network
+  kafka_broker_1:
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: "1G"
+    container_name: kafka_broker_1
+    image: confluentinc/cp-kafka:latest
+    restart: always
+    depends_on:
+      - kafka_registry
+    links:
+      - kafka_registry
+    ports:
+      - 39092:39092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: kafka_registry:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka_broker_1:9092,PLAINTEXT_HOST://localhost:39092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - lightyear_network
+  #  kafka_broker_2:
+  #    container_name: kafka_broker_2
+  #    image: confluentinc/cp-kafka:latest
+  #    depends_on:
+  #      - kafka_registry
+  #    links:
+  #      - kafka_registry
+  #    ports:
+  #      - 39093:29092
+  #    environment:
+  #      KAFKA_BROKER_ID: 2
+  #      KAFKA_ZOOKEEPER_CONNECT: kafka_registry:2181
+  #      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka_broker_2:9092,PLAINTEXT_HOST://localhost:39093
+  #      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+  #      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+  #      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
+  #  kafka_broker_3:
+  #    container_name: kafka_broker_3
+  #    image: confluentinc/cp-kafka:latest
+  #    depends_on:
+  #      - kafka_registry
+  #    links:
+  #      - kafka_registry
+  #    ports:
+  #      - 39094:29092
+  #    environment:
+  #      KAFKA_BROKER_ID: 3
+  #      KAFKA_ZOOKEEPER_CONNECT: kafka_registry:2181
+  #      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka_broker_3:9092,PLAINTEXT_HOST://10.0.0.35:39094
+  #      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+  #      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+  #      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
+  schema-registry:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: "512M"
+    image: confluentinc/cp-schema-registry
+    ports:
+      - 38085:8085
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'PLAINTEXT://kafka_broker_1:9092'
+      SCHEMA_REGISTRY_HOST_NAME: 'schema-registry'
+      SCHEMA_REGISTRY_LISTENERS: 'http://0.0.0.0:8085'
+      SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL: 'INFO'
+    networks:
+      - lightyear_network
+  akhq:
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: "2048M"
+    container_name: akhq
+    image: tchiotludo/akhq:0.21.0
+    ports:
+      - 38080:8080
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            lightyear:
+              properties:
+                bootstrap.servers: "kafka_broker_1:9092"
+    #              schema-registry:
+    #                url: "http://schema-registry:8085"
+    networks:
+      - lightyear_network
