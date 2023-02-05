@@ -1,0 +1,3 @@
+[submodule "lightyear-mc-server"]
+	path = lightyear-mc-server
+	url = git@github.com:HungryDevMC/lightyear-mc-server.git
